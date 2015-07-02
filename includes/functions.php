@@ -24,16 +24,21 @@ function edd_free_download_process() {
         wp_die( __( 'Bad spammer, no download!', 'edd-free-downloads' ), __( 'Oops!', 'edd-free-downloads' ) );
     }
 
-    if( ! wp_verify_nonce( $_POST['edd_free_download_nonce'], 'edd_free_download_nonce' ) ) {
+    if( ! isset( $_POST['edd_free_download_nonce'] ) || ! wp_verify_nonce( $_POST['edd_free_download_nonce'], 'edd_free_download_nonce' ) ) {
         wp_die( __( 'Cheatin&#8217; huh?', 'edd-free-downloads' ), __( 'Oops!', 'edd-free-downloads' ) );
     }
 
-    if ( ! isset( $_POST['edd_free_download_email'] ) || ! is_email( $_POST['edd_free_download_email'] ) ) {
+    if ( ! isset( $_POST['edd_free_download_email'] ) ) {
         wp_die( __( 'An internal error has occurred, please try again or contact support.', 'edd-free-downloads' ), __( 'Oops!', 'edd-free-downloads' ) );
     }
 
-    $email       = strip_tags( trim( $_POST['edd_free_download_email'] ) );
+    $email       = sanitize_email( trim( $_POST['edd_free_download_email'] ) );
+    $email       = filter_var( $email, FILTER_SANITIZE_EMAIL );
     $user        = get_user_by( 'email', $email );
+
+    if ( ! is_email( $_POST['edd_free_download_email'] ) || !filter_var( $email, FILTER_VALIDATE_EMAIL ) ){
+        wp_die( __( 'An internal error has occurred, please try again or contact support.', 'edd-free-downloads' ), __( 'Oops!', 'edd-free-downloads' ) );
+    }
 
     // No banned emails please!
     if( edd_is_email_banned( $email ) ) {
@@ -45,10 +50,23 @@ function edd_free_download_process() {
         wp_die( __( 'An internal error has occurred, please try again or contact support.', 'edd-free-downloads' ), __( 'Oops!', 'edd-free-downloads' ) );
     }
 
-    $post_type = get_post_type( $download_id );
-    if ( 'download' !== $post_type ) {
+    $download = get_post( $download_id );
+    
+    if ( !is_object( $download ) ){
         wp_die( __( 'An internal error has occurred, please try again or contact support.', 'edd-free-downloads' ), __( 'Oops!', 'edd-free-downloads' ) );
     }
+    
+    if( 'download' != $download->post_type )
+        wp_die( __( 'An internal error has occurred, please try again or contact support.', 'edd-free-downloads' ), __( 'Oops!', 'edd-free-downloads' ) );
+    }
+    
+    if ( edd_is_bundled_product( $download_id ) ){
+        wp_die( __( 'An internal error has occurred, please try again or contact support.', 'edd-free-downloads' ), __( 'Oops!', 'edd-free-downloads' ) );
+    }
+    
+    if ( ! current_user_can( 'edit_post', $download->ID ) && $download->post_status != 'publish' ) {
+		wp_die( __( 'An internal error has occurred, please try again or contact support.', 'edd-free-downloads' ), __( 'Oops!', 'edd-free-downloads' ) ); // Do not allow draft/pending to be purchased if can't edit. Fixes #1056
+	}
 
     if( isset( $_POST['edd_free_download_fname'] ) ) {
         $user_first = sanitize_text_field( $_POST['edd_free_download_fname'] );
@@ -134,18 +152,18 @@ add_action( 'edd_free_download_process', 'edd_free_download_process' );
  *
  * @since       1.0.0
  * @param       int $download_id The ID to check
- * @return      bool $ret True if we should use the modal, false otherwise
+ * @return      bool $show_modal True if we should use the modal, false otherwise
  */
 function edd_free_downloads_use_modal( $download_id = false ) {
-    $ret = false;
+    $show_modal = false;
 
     if( $download_id && ! edd_has_variable_prices( $download_id ) && ! edd_is_bundled_product( $download_id ) ) {
         $price = floatval( edd_get_lowest_price_option( $download_id ) );
 
         if( $price == 0 ) {
-            $ret = true;
+            $show_modal = true;
         }
     }
 
-    return $ret;
+    return $show_modal;
 }
