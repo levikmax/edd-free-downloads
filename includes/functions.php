@@ -60,7 +60,7 @@ function edd_free_download_process() {
         wp_die( __( 'An internal error has occurred, please try again or contact support.', 'edd-free-downloads' ), __( 'Oops!', 'edd-free-downloads' ) );
     }
     
-    if ( edd_is_bundled_product( $download_id ) ){
+    if ( edd_is_bundled_product( $download_id ) || edd_has_variable_prices( $download_id ) ){
         wp_die( __( 'An internal error has occurred, please try again or contact support.', 'edd-free-downloads' ), __( 'Oops!', 'edd-free-downloads' ) );
     }
     
